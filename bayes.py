@@ -113,6 +113,10 @@ class Test:
                 best_leg = variant
 
         if self.done:
+
+            if not best_leg:
+                best_leg = self.variants[0]
+
             self.winner = best_leg.name
 
         if self.verbose:
@@ -126,9 +130,8 @@ class Test:
 
 def main():
     variants = [
-        ('control', 1, 1, 10000, 500),
-        ('treatment', 1, 1, 10000, 30),
-        ('littlewinner', 1, 1, 10000, 550)
+        ('control', 1, 1, 30, 16),
+        ('treatment', 1, 1, 41, 11),
     ]
     t = Test(variants=variants)
     t.report()
