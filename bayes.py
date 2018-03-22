@@ -11,18 +11,37 @@ import abtest
 
 class Variant:
 
-    def __init__(self, name, a, b, n, c):
+    def __init__(self, name, a, b, n, c, values=[]):
         self.name = name
         self.a = a
         self.b = b
         self.n = n
         self.c = c
 
+        # this should have the form [[v1, v2...], [n1, n2...]] for
+        # all discrete values observed in the test
+        #
+        # always assuming an improper (0, 0) prior;
+        # make this more flexible later?
+        self.alpha = None
+        self.theta = None
+        if values:
+            self.alpha = sum(values[0])
+            self.theta = 1.0 / sum(
+                [i[0] * i[1] for i in zip(values[0], values[1])]
+            )
+
     def sample_posterior(self, n_samples):
         self.samples = (np.random.beta(
             self.a + self.c, self.b + self.n - self.c,
             size=n_samples
         ))
+        if self.alpha and self.beta:
+            self.samples *= np.random.gamma(
+                self.alpha,
+                scale=self.theta,
+                size=n_samples
+            )
 
 
 class Test:
@@ -130,8 +149,8 @@ class Test:
 
 def main():
     variants = [
-        ('control', 1, 1, 30, 16),
-        ('treatment', 1, 1, 41, 11),
+        ('control', 1, 1, 1182, 1182, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1044, 58, 39, 15, 8, 1, 5, 2, 3, 1, 1, 1, 1]]),
+        ('treatment', 1, 1, 1148, 1148, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1008, 57, 39, 16, 11, 1, 3, 4, 2, 1, 1, 1, 1, 1]]),
     ]
     t = Test(variants=variants)
     t.report()
