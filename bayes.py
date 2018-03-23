@@ -36,7 +36,7 @@ class Variant:
             self.a + self.c, self.b + self.n - self.c,
             size=n_samples
         ))
-        if self.alpha and self.beta:
+        if self.alpha and self.theta:
             self.samples *= np.random.gamma(
                 self.alpha,
                 scale=self.theta,
@@ -149,8 +149,8 @@ class Test:
 
 def main():
     variants = [
-        ('control', 1, 1, 1182, 1182, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1044, 58, 39, 15, 8, 1, 5, 2, 3, 1, 1, 1, 1]]),
-        ('treatment', 1, 1, 1148, 1148, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1008, 57, 39, 16, 11, 1, 3, 4, 2, 1, 1, 1, 1, 1]]),
+        ('control', 1, 1, 1281, 1281, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1]]),
+        ('treatment', 1, 1, 1236, 1236, [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1]]),
     ]
     t = Test(variants=variants)
     t.report()
