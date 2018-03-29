@@ -9,9 +9,19 @@ import numpy as np
 import abtest
 
 
-class Exponential:
+class Distribution:
+
+    def __init__(self):
+        self.warnings = {}
+
+    def sample_posterior(self, n_samples):
+        pass
+
+
+class Exponential(Distribution):
 
     def __init__(self, values, frequencies, alpha=0, beta=0):
+        super().__init__()
 
         if len(values) != len(frequencies):
             raise ValueError('values and frequencies must be of equal length')
@@ -29,26 +39,35 @@ class Exponential:
         )
 
 
-class Pareto(Exponential):
+class Pareto(Distribution):
 
     def __init__(self, values, frequencies, alpha=0, beta=0, xmin=1):
+        super().__init__()
 
         if len(values) != len(frequencies):
             raise ValueError('values and frequencies must be of equal length')
 
+        self.xmin = xmin
         self.alpha = alpha + sum(values)
         self.theta = 1.0 / (
             beta + sum(
                 i[0] * np.log(i[1] / float(xmin))
                 for i in zip(values, frequencies)
-                if i[1] >= xmin
+                if i[1] >= self.xmin
             )
         )
 
+    def sample_posterior(self, n_samples):
+        shape = np.random.gamma(self.alpha, scale=self.theta, size=n_samples)
+        self.warnings['shape <= 1, invalid sample'] = np.sum(shape <= 1)
+        return shape * self.xmin / (shape - 1)
 
-class Bernoulli:
+
+class Bernoulli(Distribution):
 
     def __init__(self, alpha, beta, trials, successes):
+        super().__init__()
+
         self.alpha = alpha + successes
         self.beta = beta + trials - successes
 
@@ -74,7 +93,7 @@ class Variant:
 
 class Test:
 
-    def __init__(self, variants=None, **kwargs):
+    def __init__(self, variants=None, verbose=True, **kwargs):
         # variants[0] is taken to be control!
         self.variants = variants
 
@@ -84,7 +103,7 @@ class Test:
         self.check_every = 500
         self.done = False
         self.winner = None
-        self.verbose = kwargs.get('verbose', True)
+        self.verbose = verbose
 
     def sample_variants(self):
         self.samples = np.empty([len(self.variants), self.n_samples])
@@ -149,6 +168,13 @@ class Test:
                     np.round(variant.beats_all, 3)
                     )
                 )
+                for distribution in variant.distributions:
+                    for key, count in distribution.warnings.items():
+                        print(
+                            'Warning: (distribution {}): {} (n={})'.format(
+                                distribution.__class__.__name__,key, count
+                            )
+                        )
 
             if variant.loss < self.min_loss:
                 self.done = True
@@ -179,13 +205,13 @@ def main():
         Variant(
             'control',
             [
-                Exponential([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1])
+                Pareto([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1])
             ]
         ),
         Variant(
             'treatment',
             [
-                Exponential([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1])
+                Pareto([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1])
             ]
         )
     ]
