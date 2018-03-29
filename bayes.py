@@ -17,6 +17,11 @@ class Distribution:
     def __init__(self):
         self.warnings = {}
 
+    @staticmethod
+    def check_value_frequencies(values, frequencies):
+        if len(values) != len(frequencies):
+            raise ValueError('values and frequencies must be of equal length')
+
     def sample_posterior(self, n_samples):
         pass
 
@@ -41,9 +46,7 @@ class Exponential(Distribution):
 
     def __init__(self, values, frequencies, alpha=0, beta=0):
         super().__init__()
-
-        if len(values) != len(frequencies):
-            raise ValueError('values and frequencies must be of equal length')
+        self.check_value_frequencies(values, frequencies)
 
         self.alpha = alpha + sum(values)
         self.theta = 1.0 / (
@@ -58,38 +61,12 @@ class Exponential(Distribution):
         )
 
 
-class Pareto(Distribution):
-
-    def __init__(self, values, frequencies, alpha=0, beta=0, xmin=1):
-        super().__init__()
-
-        if len(values) != len(frequencies):
-            raise ValueError('values and frequencies must be of equal length')
-
-        self.xmin = xmin
-        self.alpha = alpha + sum(values)
-        self.theta = 1.0 / (
-            beta + sum(
-                i[0] * np.log(i[1] / float(xmin))
-                for i in zip(values, frequencies)
-                if i[1] >= self.xmin
-            )
-        )
-
-    def sample_posterior(self, n_samples):
-        shape = np.random.gamma(self.alpha, scale=self.theta, size=n_samples)
-        self.warnings['shape <= 1, invalid sample'] = np.sum(shape <= 1)
-        return shape * self.xmin / (shape - 1)
-
-
 class Normal(Distribution):
     # this distribution only models the mean and takes variance as fixed
 
     def __init__(self, values, frequencies, mean=0, var=100):
         super().__init__()
-
-        if len(values) != len(frequencies):
-            raise ValueError('values and frequencies must be of equal length')
+        self.check_value_frequencies(values, frequencies)
 
         raw_samples = []
         for i, value in enumerate(values):
@@ -112,6 +89,31 @@ class Normal(Distribution):
         return np.random.normal(self.mean, scale=self.stddev, size=n_samples)
 
 
+class Pareto(Distribution):
+
+    def __init__(self, values, frequencies, alpha=0, beta=0, xmin=1):
+        super().__init__()
+        self.check_value_frequencies(values, frequencies)
+
+        self.xmin = xmin
+        self.alpha = alpha + sum(values)
+        self.theta = 1.0 / (
+            beta + sum(
+                i[0] * np.log(i[1] / float(xmin))
+                for i in zip(values, frequencies)
+                if i[1] >= self.xmin
+            )
+        )
+
+    def sample_posterior(self, n_samples):
+        shape = np.random.gamma(self.alpha, scale=self.theta, size=n_samples)
+
+        # shape <= 1 has mean == Inf
+        self.warnings['shape <= 1, invalid sample'] = np.sum(shape <= 1)
+
+        return shape * self.xmin / (shape - 1)
+
+
 ### Test Configuration ###
 
 
@@ -130,13 +132,12 @@ class Variant:
 class Test:
 
     def __init__(self, variants=None, verbose=True, **kwargs):
-        # variants[0] is taken to be control!
+        # variants[0] is taken to be control
         self.variants = variants
 
         # 1M samples means loss function accurate to ~0.003 (p=(1 - 10^-10))
         self.n_samples = 1000000
         self.min_loss = 0.003
-        self.check_every = 500
         self.done = False
         self.winner = None
         self.verbose = verbose
@@ -170,21 +171,6 @@ class Test:
                     axis=0
                 )
             ) / float(self.n_samples)
-
-    def run(self, abtest):
-        self.abtest = abtest
-
-        while not self.done:
-            self.abtest.trial()
-            
-            if self.abtest.trials % self.check_every == 0:
-
-                self.variants = [
-                    Variant(l.name, 1, 1, l.trials, l.successes)
-                    for l in self.abtest.legs
-                ]
-
-                self.report()
 
     def report(self):
         self.sample_variants()
@@ -241,13 +227,19 @@ def main():
         Variant(
             'control',
             [
-                Normal([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1])
+                Pareto(
+                    [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23],
+                    [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1]
+                )
             ]
         ),
         Variant(
             'treatment',
             [
-                Normal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1])
+                Pareto(
+                    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19],
+                    [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1]
+                )
             ]
         )
     ]

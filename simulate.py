@@ -3,12 +3,33 @@
 import random
 import statistics as stats
 
-import abtest
 import bayes
-import methods
+import simulation
 
 
 SAMPLES_PER_TEST = 100
+
+
+def run_simulation(test, check_every=500):
+
+    method = bayes.Test(verbose=False)
+
+    while not method.done:
+        test.trial()
+        
+        if test.trials % check_every == 0:
+
+            # TODO (db): extend this to support other distributions
+            method.variants = [
+                bayes.Variant(
+                    l.name, [bayes.Bernoulli(1, 1, l.trials, l.successes)]
+                )
+                for l in test.legs
+            ]
+
+            method.report()    
+
+    return method
 
 
 def run_test(control_rate, treatment_rate):
@@ -24,39 +45,35 @@ def run_test(control_rate, treatment_rate):
 
     for i in range(SAMPLES_PER_TEST):
 
-        control = abtest.Leg('control', 0.5, control_rate)
-        treatment = abtest.Leg('treatment', 0.5, treatment_rate)
-        test = abtest.ABTest(control, treatment)
+        control = simulation.Leg('control', 0.5, control_rate)
+        treatment = simulation.Leg('treatment', 0.5, treatment_rate)
+        test = simulation.ABTest(control, treatment)
 
-        # method = methods.TwoSidedSequentialSampling(
-        #     control.rate
-        # )
-        method = bayes.Test(verbose=False)
-        method.run(test)
+        results = run_simulation(test)
 
         tests += 1
         trial_counts.append(test.trials)
 
         if treatment.rate > control.rate:
-            if method.winner == 'treatment':
+            if results.winner == 'treatment':
                 true_positives += 1
-            elif method.winner == 'control':
+            elif results.winner == 'control':
                 false_negatives += 1
             else:
                 false_nulls += 1
 
         elif treatment.rate < control.rate:
-            if method.winner == 'treatment':
+            if results.winner == 'treatment':
                 false_positives += 1
-            elif method.winner == 'control':
+            elif results.winner == 'control':
                 true_negatives += 1
             else:
                 false_nulls += 1
 
         elif treatment.rate == control.rate:
-            if method.winner == 'treatment':
+            if results.winner == 'treatment':
                 false_positives += 1
-            elif method.winner == 'control':
+            elif results.winner == 'control':
                 false_negatives += 1
             else:
                 true_nulls += 1
