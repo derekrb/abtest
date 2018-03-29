@@ -4,9 +4,12 @@
 inspired by: https://cdn2.hubspot.net/hubfs/310840/VWO_SmartStats_technical_whitepaper.pdf
 '''
 
+import math
+
 import numpy as np
 
-import abtest
+
+### Distributions ###
 
 
 class Distribution:
@@ -16,6 +19,22 @@ class Distribution:
 
     def sample_posterior(self, n_samples):
         pass
+
+
+class Bernoulli(Distribution):
+
+    def __init__(self, alpha, beta, trials, successes):
+        super().__init__()
+
+        self.alpha = alpha + successes
+        self.beta = beta + trials - successes
+
+    def sample_posterior(self, n_samples):
+        return np.random.beta(
+            self.alpha,
+            self.beta,
+            size=n_samples
+        )
 
 
 class Exponential(Distribution):
@@ -63,20 +82,37 @@ class Pareto(Distribution):
         return shape * self.xmin / (shape - 1)
 
 
-class Bernoulli(Distribution):
+class Normal(Distribution):
+    # this distribution only models the mean and takes variance as fixed
 
-    def __init__(self, alpha, beta, trials, successes):
+    def __init__(self, values, frequencies, mean=0, var=100):
         super().__init__()
 
-        self.alpha = alpha + successes
-        self.beta = beta + trials - successes
+        if len(values) != len(frequencies):
+            raise ValueError('values and frequencies must be of equal length')
+
+        raw_samples = []
+        for i, value in enumerate(values):
+            raw_samples.extend([value] * frequencies[i])
+        raw_samples = np.array(raw_samples)
+
+        sample_precision = 1.0 / np.var(raw_samples)
+        precision = 1.0 / var
+
+        self.mean = (
+            (precision * mean + sample_precision * sum(raw_samples))
+            / (precision + len(raw_samples) * sample_precision)
+        )
+        self.stddev = math.sqrt(
+            1.0 /
+            (precision + len(raw_samples) * sample_precision)
+        )
 
     def sample_posterior(self, n_samples):
-        return np.random.beta(
-            self.alpha,
-            self.beta,
-            size=n_samples
-        )
+        return np.random.normal(self.mean, scale=self.stddev, size=n_samples)
+
+
+### Test Configuration ###
 
 
 class Variant:
@@ -205,13 +241,13 @@ def main():
         Variant(
             'control',
             [
-                Pareto([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1])
+                Normal([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 20, 23], [1129, 67, 43, 16, 10, 1, 5, 2, 4, 1, 1, 1, 1])
             ]
         ),
         Variant(
             'treatment',
             [
-                Pareto([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1])
+                Normal([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 18, 19], [1081, 66, 42, 16, 14, 2, 3, 4, 2, 2, 1, 1, 1, 1])
             ]
         )
     ]
