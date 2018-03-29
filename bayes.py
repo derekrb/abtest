@@ -22,7 +22,7 @@ class Exponential:
         )
 
     def sample_posterior(self, n_samples):
-        return np.random.gamma(
+        return 1.0 / np.random.gamma(
             self.alpha,
             scale=self.theta,
             size=n_samples
