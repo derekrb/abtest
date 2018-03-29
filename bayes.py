@@ -28,7 +28,7 @@ class Distribution:
 
 class Bernoulli(Distribution):
 
-    def __init__(self, alpha, beta, trials, successes):
+    def __init__(self, trials, successes, alpha=1, beta=1):
         super().__init__()
 
         self.alpha = alpha + successes
